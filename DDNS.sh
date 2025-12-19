@@ -6,7 +6,7 @@ touch "$LOG_FILE"
 # Cloudflare API 配置
 ZONE_NAME="tiktokjiasu.top"          # 一级域名
 RECORD_NAME="mybv.tiktokjiasu.top"# 二级域名
-CF_API_TOKEN="9f7bf9dbdf857d2071f768b84d8c9e73ecef6"  # Cloudflare API 令牌
+CF_API_TOKEN="Y0dcuQIEB16IPNHLXbrb23KEC_4TfWSf2LzPmECV"  # Cloudflare API 令牌
 
 # 获取 Zone ID
 ZONE_ID=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones?name=${ZONE_NAME}" \
