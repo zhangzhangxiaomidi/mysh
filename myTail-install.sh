@@ -59,7 +59,7 @@ if command -v curl >/dev/null 2>&1; then
     curl -fSL "$IPK_URL" -o "$IPK_FILE"
 else
     echo "使用wget下载..."
-    wget "$IPK_URL" -O "$IPK_FILE"
+    wget --no-check-certificate "$IPK_URL" -O "$IPK_FILE"
 fi
 
 # 3. 检查下载是否成功
