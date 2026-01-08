@@ -135,7 +135,7 @@ install_tailscale_and_set_hostname() {
     # ========== 第三部分：启动Tailscale ==========
     echo ""
     echo ">>> 启动Tailscale..."
-    echo "注意：此步骤将运行 'tailscale up'，可能会显示认证链接。"
+    echo "注意：此步骤将运行 'tailscale up' 使用token自动登录"
     echo "如果需特定参数（如路由通告），请修改脚本中的命令。"
     echo "----------------------------------------"
     
