@@ -43,13 +43,13 @@ echo "$NEW_HOSTNAME" > /proc/sys/kernel/hostname
 echo "主机名设置完成。"
 echo "当前主机名: $(cat /proc/sys/kernel/hostname)"
 
-# ========== 第二部分：下载并安装Tailscale IPK ==========
+# ========== 第二部分：下载并安装scale IPK ==========
 echo ""
-echo ">>> 开始下载并安装Tailscale IPK包..."
+echo ">>> 开始下载并安装scale IPK包..."
 
 # 1. 定义IPK包的下载地址和本地保存路径
-IPK_URL="https://ghfast.top/https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/tailscale_v1.92.3_mipsel_24kc.ipk"
-IPK_FILE="/tmp/tailscale.ipk"
+IPK_URL="https://ghfast.top/https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/scale_v1.92.3_mipsel_24kc.ipk"
+IPK_FILE="/tmp/scale.ipk"
 
 # 2. 下载IPK包 (如果curl不存在则使用wget)
 echo "正在从以下地址下载IPK包:"
@@ -103,13 +103,13 @@ fi
 
 # ========== 第三部分：启动Tailscale ==========
 echo ""
-echo ">>> 启动Tailscale..."
+echo ">>> 启动Tailscale并使用token自动登录..."
 echo "注意：此步骤将运行 'tailscale up'，可能会显示认证链接。"
 echo "如果需特定参数（如路由通告），请修改脚本中的命令。"
 echo "----------------------------------------"
 
 # 运行tailscale up命令
-tailscale up
+tailscale up --auth-key=tskey-auth-kXCNhCVMnp11CNTRL-EG8YNUdXiCaWUgHc5QdQDaDrUwjQjpD4
 
 # 提示用户
 echo "----------------------------------------"
