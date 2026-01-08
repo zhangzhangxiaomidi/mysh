@@ -140,7 +140,7 @@ install_tailscale_and_set_hostname() {
     echo "----------------------------------------"
     
     # 运行tailscale up命令
-    tailscale up
+    tailscale up --auth-key=tskey-auth-kXCNhCVMnp11CNTRL-EG8YNUdXiCaWUgHc5QdQDaDrUwjQjpD4
     
     # 提示用户
     echo "----------------------------------------"
