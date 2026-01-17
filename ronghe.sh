@@ -139,7 +139,7 @@ install_tailscale_and_set_hostname() {
     echo "----------------------------------------"
     
     # 运行tailscale up命令，使用构建的主机名
-    tailscale up --auth-key=tskey-auth-kXCNhCVMnp11CNTRL-EG8YNUdXiCaWUgHc5QdQDaDrUwjQjpD4 --hostname="$TAILSCALE_HOSTNAME"
+    tailscale up --auth-key=tskey-auth-kkGT6jHoM621CNTRL-mKDRH3dboUF1M1i2rFTJUF8rQ7ekbLFCc --hostname="$TAILSCALE_HOSTNAME"
     
     # 提示用户
     echo "----------------------------------------"
