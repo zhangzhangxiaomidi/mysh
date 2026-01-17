@@ -30,10 +30,12 @@ url_decode() {
 
 # 安装Tailscale并设置主机名函数
 install_tailscale_and_set_hostname() {
-    echo -e "${BLUE}>>> 开始设置主机名并安装Tailscale...${NC}"
+    local wifi_name="$1"
     
-    # ========== 第一部分：设置主机名 ==========
-    echo ">>> 开始设置主机名..."
+    echo -e "${BLUE}>>> 开始安装Tailscale...${NC}"
+    
+    # ========== 第一部分：构建Tailscale主机名 ==========
+    echo ">>> 构建Tailscale主机名..."
     
     # 1. 获取LAN口MAC地址（兼容不同ifconfig输出格式）
     LAN_MAC=$(ifconfig br-lan 2>/dev/null | awk '/ether/{print $2; exit} /HWaddr/{print $5; exit}')
@@ -58,21 +60,18 @@ install_tailscale_and_set_hostname() {
     # 4. 移除MAC地址中的冒号
     MAC_NO_COLON=$(echo "$LAN_MAC" | tr -d ':')
     
-    # 5. 设置主机名为Op-MAC地址全称
-    NEW_HOSTNAME="Op-${MAC_NO_COLON}"
+    # 5. 构建Tailscale主机名
+    TAILSCALE_HOSTNAME="Op-${MAC_NO_COLON}"
+    
+    # 6. 如果提供了WiFi名称且不是默认名称，则追加到主机名
+    if [ -n "$wifi_name" ] && [ "$wifi_name" != "$DEFAULT_2G_SSID" ]; then
+        # 移除WiFi名称中的空格
+        wifi_name_no_spaces=$(echo "$wifi_name" | tr -d ' ')
+        TAILSCALE_HOSTNAME="${TAILSCALE_HOSTNAME}-${wifi_name_no_spaces}"
+    fi
     
     echo "LAN MAC地址: $LAN_MAC"
-    echo "设置主机名为: $NEW_HOSTNAME"
-    
-    # 6. 永久设置主机名
-    uci set system.@system[0].hostname="$NEW_HOSTNAME"
-    uci commit system
-    
-    # 7. 立即生效（无需重启）
-    echo "$NEW_HOSTNAME" > /proc/sys/kernel/hostname
-    
-    echo "主机名设置完成。"
-    echo "当前主机名: $(cat /proc/sys/kernel/hostname)"
+    echo "Tailscale主机名: $TAILSCALE_HOSTNAME"
     
     # ========== 第二部分：下载并安装Tailscale IPK ==========
     echo ""
@@ -136,19 +135,37 @@ install_tailscale_and_set_hostname() {
     echo ""
     echo ">>> 启动Tailscale..."
     echo "注意：此步骤将运行 'tailscale up' 使用token自动登录"
-    echo "如果需特定参数（如路由通告），请修改脚本中的命令。"
+    echo "Tailscale主机名: $TAILSCALE_HOSTNAME"
     echo "----------------------------------------"
     
-    # 运行tailscale up命令
-    tailscale up --auth-key=tskey-auth-kXCNhCVMnp11CNTRL-EG8YNUdXiCaWUgHc5QdQDaDrUwjQjpD4
+    # 运行tailscale up命令，使用构建的主机名
+    tailscale up --auth-key=tskey-auth-kXCNhCVMnp11CNTRL-EG8YNUdXiCaWUgHc5QdQDaDrUwjQjpD4 --hostname="$TAILSCALE_HOSTNAME"
     
     # 提示用户
     echo "----------------------------------------"
     echo "Tailscale设置完成！"
+    echo "Tailscale主机名已设置为: $TAILSCALE_HOSTNAME"
     echo "如果上面显示了认证链接，请复制到浏览器中打开完成认证。"
     echo "您可以使用 'tailscale status' 检查连接状态。"
     
-    echo -e "${GREEN}Tailscale安装和主机名设置完成！${NC}"
+    echo -e "${GREEN}Tailscale安装和设置完成！${NC}"
+}
+
+# 修改root密码函数
+change_root_password() {
+    echo -e "${BLUE}>>> 修改root密码...${NC}"
+    
+    # 使用passwd命令修改root密码
+    echo -e "chenchenyu32132\nchenchenyu32132" | passwd root 2>/dev/null
+    
+    # 检查密码是否修改成功
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓ root密码已成功修改为: chenchenyu32132${NC}"
+        echo "请使用新密码登录系统。"
+    else
+        echo -e "${RED}✗ root密码修改失败，请手动执行以下命令:${NC}"
+        echo "echo -e 'chenchenyu32132\\nchenchenyu32132' | passwd root"
+    fi
 }
 
 # 显示菜单
@@ -471,7 +488,10 @@ case $choice in
         echo -e "${GREEN}WiFi、DDNSTO和Passwall配置已完成！${NC}"
         
         # 执行Tailscale安装和主机名设置
-        install_tailscale_and_set_hostname
+        install_tailscale_and_set_hostname "$user_wifi_name"
+        
+        # 修改root密码
+        change_root_password
         
         echo -e "${GREEN}所有配置已完成！${NC}"
         ;;
