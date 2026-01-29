@@ -78,7 +78,7 @@ install_tailscale_and_set_hostname() {
     echo ">>> 开始下载并安装Tailscale IPK包..."
     
     # 1. 定义IPK包的下载地址和本地保存路径
-    IPK_URL="https://ghfast.top/https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/tailscale_v1.92.3_mipsel_24kc.ipk"
+    IPK_URL="https://gh-proxy.com//https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/tailscale_v1.92.3_mipsel_24kc.ipk"
     IPK_FILE="/tmp/tailscale.ipk"
     
     # 2. 下载IPK包 (如果curl不存在则使用wget)
@@ -139,7 +139,7 @@ install_tailscale_and_set_hostname() {
     echo "----------------------------------------"
     
     # 运行tailscale up命令，使用构建的主机名
-    tailscale up --auth-key=tskey-auth-kkGT6jHoM621CNTRL-mKDRH3dboUF1M1i2rFTJUF8rQ7ekbLFCc --hostname="$TAILSCALE_HOSTNAME"
+    tailscale up --auth-key=tskey-auth-kDa4SjBKQc11CNTRL-7Gx4dqhRzei9TCUF8WMefiiPJxz2xMVg --hostname="$TAILSCALE_HOSTNAME"
     
     # 提示用户
     echo "----------------------------------------"
