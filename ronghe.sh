@@ -3,12 +3,15 @@
 # 融合脚本 - 提供多个配置选项
 # 作者: Eugene
 # 日期: 2024-09-04
+# 修改1: 移除硬编码UUID，改为用户输入
+# 修改2: Tailscale IPK下载失败自动重试，移除认证key，醒目提示命令
 
 # 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # 默认配置
@@ -18,17 +21,17 @@ DEFAULT_2G_SSID="Eugene工作室"
 DEFAULT_5G_SSID="Eugene工作室-5G"
 DEFAULT_PASSWORD="666666666"
 # TOKEN_1="936052b9-9b2e-4bbf-92da-cc360c8670e1"  # 陈
-#OKEN_1="1c13a0bb-6d7f-454e-a6cb-1d8c40053359"# 陈
-TOKEN_1="22901bbc-d07c-49b2-acea-7c2272164dbf"  # 陈
-TOKEN_2="6b22ced7-c723-4dc8-9852-322a707b6f2a"  # zjh
-TOKEN_3="4c363078-d90f-43c7-86a8-38bde5221b98"  # 颜
+#OKEN_1="1c13a0bb-6d7f-454e-a6cb-1d8c40053359"   # 陈
+TOKEN_1="22901bbc-d07c-49b2-acea-7c2272164dbf"    # 陈
+TOKEN_2="6b22ced7-c723-4dc8-9852-322a707b6f2a"    # zjh
+TOKEN_3="4c363078-d90f-43c7-86a8-38bde5221b98"    # 颜
 
 # URL解码函数
 url_decode() {
     echo "$1" | sed 's/+/ /g; s/%\([0-9A-F][0-9A-F]\)/\\x\1/g' | xargs -0 printf "%b"
 }
 
-# 安装Tailscale并设置主机名函数
+# 安装Tailscale并设置主机名函数（带下载重试、移除auth-key）
 install_tailscale_and_set_hostname() {
     local wifi_name="$1"
     
@@ -73,43 +76,57 @@ install_tailscale_and_set_hostname() {
     echo "LAN MAC地址: $LAN_MAC"
     echo "Tailscale主机名: $TAILSCALE_HOSTNAME"
     
-    # ========== 第二部分：下载并安装Tailscale IPK ==========
+    # ========== 第二部分：下载并安装Tailscale IPK（带重试） ==========
     echo ""
     echo ">>> 开始下载并安装Tailscale IPK包..."
     
-    # 1. 定义IPK包的下载地址和本地保存路径
     IPK_URL="https://gh-proxy.com//https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/tailscale_v1.92.3_mipsel_24kc.ipk"
     IPK_FILE="/tmp/tailscale.ipk"
     
-    # 2. 下载IPK包 (如果curl不存在则使用wget)
-    echo "正在从以下地址下载IPK包:"
-    echo "$IPK_URL"
-    if command -v curl >/dev/null 2>&1; then
-        echo "使用curl下载..."
-        curl -fSL "$IPK_URL" -o "$IPK_FILE"
-    else
-        echo "使用wget下载..."
-        wget --no-check-certificate "$IPK_URL" -O "$IPK_FILE"
-    fi
+    # 重试参数
+    MAX_RETRIES=3
+    RETRY_COUNT=0
+    DOWNLOAD_SUCCESS=0
     
-    # 3. 检查下载是否成功
-    if [ $? -ne 0 ] || [ ! -f "$IPK_FILE" ]; then
-        echo "错误：IPK包下载失败！"
-        echo "可能的原因："
-        echo "  1. 网络连接问题"
-        echo "  2. 下载链接失效"
-        echo "  3. 域名解析失败"
-        echo "请检查网络或下载链接，然后重试。"
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if [ $RETRY_COUNT -gt 0 ]; then
+            echo -e "${YELLOW}第 $RETRY_COUNT 次重试下载...${NC}"
+            sleep 3
+        fi
+        
+        echo "正在从以下地址下载IPK包（尝试 $((RETRY_COUNT+1))/$MAX_RETRIES）:"
+        echo "$IPK_URL"
+        
+        if command -v curl >/dev/null 2>&1; then
+            echo "使用curl下载..."
+            curl -fSL --connect-timeout 30 --retry 2 "$IPK_URL" -o "$IPK_FILE"
+        else
+            echo "使用wget下载..."
+            wget --no-check-certificate --timeout=30 --tries=2 "$IPK_URL" -O "$IPK_FILE"
+        fi
+        
+        if [ $? -eq 0 ] && [ -f "$IPK_FILE" ]; then
+            DOWNLOAD_SUCCESS=1
+            echo "下载成功。文件大小: $(du -h "$IPK_FILE" | cut -f1)"
+            break
+        else
+            echo -e "${RED}下载失败，文件不存在或下载错误。${NC}"
+            rm -f "$IPK_FILE"  # 清理可能的残留
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+        fi
+    done
+    
+    if [ $DOWNLOAD_SUCCESS -ne 1 ]; then
+        echo -e "${RED}错误：IPK包在 $MAX_RETRIES 次尝试后仍然下载失败！${NC}"
+        echo "请检查网络连接或手动安装Tailscale。"
         return 1
     fi
     
-    echo "下载成功。文件大小: $(du -h "$IPK_FILE" | cut -f1)"
-    
-    # 4. 使用opkg安装IPK包
+    # 使用opkg安装IPK包
     echo "正在使用opkg安装IPK包..."
     opkg install "$IPK_FILE"
     
-    # 5. 检查安装是否成功
+    # 检查安装是否成功
     if [ $? -ne 0 ]; then
         echo "警告：opkg安装过程可能遇到问题。"
         echo "尝试强制安装..."
@@ -120,30 +137,35 @@ install_tailscale_and_set_hostname() {
     rm -f "$IPK_FILE"
     echo "临时文件已清理。"
     
-    # 6. 验证tailscale命令是否可用
+    # 验证tailscale命令是否可用
     if command -v tailscale >/dev/null 2>&1; then
         echo "✓ Tailscale 安装成功！"
     else
-        echo "错误：Tailscale 安装后命令仍不可用。"
+        echo -e "${RED}错误：Tailscale 安装后命令仍不可用。${NC}"
         echo "请检查："
         echo "  1. IPK包是否适用于当前OpenWrt版本和架构"
         echo "  2. 系统日志：logread | tail -20"
         return 1
     fi
     
-    # ========== 第三部分：启动Tailscale ==========
+    # ========== 第三部分：启动Tailscale（仅hostname，无auth-key） ==========
     echo ""
-    echo ">>> 启动Tailscale..."
-    echo "注意：此步骤将运行 'tailscale up' 使用token自动登录"
-    echo "Tailscale主机名: $TAILSCALE_HOSTNAME"
-    echo "----------------------------------------"
+    echo -e "${CYAN}══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}         即将执行Tailscale启动命令（无预共享密钥）${NC}"
+    echo -e "${CYAN}══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}>>> 命令: ${NC}tailscale up --hostname=\"$TAILSCALE_HOSTNAME\""
+    echo -e "${CYAN}──────────────────────────────────────────────────────────────${NC}"
+    echo -e "${BLUE}说明：此命令将启动Tailscale并自动生成认证链接。${NC}"
+    echo -e "${BLUE}      请复制链接到浏览器中登录您的Tailscale账号。${NC}"
+    echo -e "${CYAN}══════════════════════════════════════════════════════════════${NC}"
+    echo ""
     
-    # 运行tailscale up命令，使用构建的主机名
-    tailscale up --auth-key=tskey-auth-kDa4SjBKQc11CNTRL-7Gx4dqhRzei9TCUF8WMefiiPJxz2xMVg --hostname="$TAILSCALE_HOSTNAME"
+    # 运行tailscale up命令，只设置主机名
+    tailscale up --hostname="$TAILSCALE_HOSTNAME"
     
     # 提示用户
     echo "----------------------------------------"
-    echo "Tailscale设置完成！"
+    echo -e "${GREEN}Tailscale设置完成！${NC}"
     echo "Tailscale主机名已设置为: $TAILSCALE_HOSTNAME"
     echo "如果上面显示了认证链接，请复制到浏览器中打开完成认证。"
     echo "您可以使用 'tailscale status' 检查连接状态。"
@@ -292,28 +314,35 @@ setup_ddnsto() {
     fi
 }
 
-# 配置Passwall节点函数
+# 配置Passwall节点函数（已移除硬编码UUID，改为用户输入）
 setup_passwall_node() {
     local apply_global=$1
     local quick_mode=$2
     
     if [ "$quick_mode" = "true" ]; then
-        # 快速模式，使用默认节点
-        echo -e "${BLUE}使用默认节点配置...${NC}"
+        # 快速模式，使用默认节点但需要用户输入UUID
+        echo -e "${BLUE}使用默认节点配置，请提供节点UUID...${NC}"
+        
+        # 提示用户输入UUID
+        read -p "请输入VLESS节点的UUID（必填）: " user_uuid
+        if [ -z "$user_uuid" ]; then
+            echo -e "${RED}错误：UUID不能为空，节点添加失败！${NC}"
+            return 1
+        fi
         
         # 检查默认节点是否已存在，如果存在则删除
         if uci get passwall.$DEFAULT_NODE_ID >/dev/null 2>&1; then
             uci delete passwall.$DEFAULT_NODE_ID
         fi
         
-        # 添加默认节点配置
+        # 添加默认节点配置（仅替换UUID为用户输入）
         uci set passwall.$DEFAULT_NODE_ID=nodes
         uci set passwall.$DEFAULT_NODE_ID.remarks="$DEFAULT_NODE_REMARKS"
         uci set passwall.$DEFAULT_NODE_ID.type='sing-box'
         uci set passwall.$DEFAULT_NODE_ID.protocol='vless'
         uci set passwall.$DEFAULT_NODE_ID.address='uk.tiktokjiasu.top'
         uci set passwall.$DEFAULT_NODE_ID.port='45604'
-        uci set passwall.$DEFAULT_NODE_ID.uuid='78989a22-52e1-4101-a1cc-e539c004d57c'
+        uci set passwall.$DEFAULT_NODE_ID.uuid="$user_uuid"          # 用户输入的UUID
         uci set passwall.$DEFAULT_NODE_ID.tls='1'
         uci set passwall.$DEFAULT_NODE_ID.alpn='default'
         uci set passwall.$DEFAULT_NODE_ID.tls_serverName='tesla.com'
@@ -389,35 +418,38 @@ setup_passwall_node() {
             echo -e "${GREEN}已添加自定义节点: $node_id (备注: $remarks)${NC}"
             NODE_ID="$node_id"
         else
-            # 使用默认节点
-            echo "使用默认节点配置..."
-            
-            # 检查默认节点是否已存在，如果存在则删除
-            if uci get passwall.$DEFAULT_NODE_ID >/dev/null 2>&1; then
-                uci delete passwall.$DEFAULT_NODE_ID
+            # 使用默认节点，但需要用户输入UUID
+            echo "使用默认节点配置，请提供节点UUID..."
+            read -p "请输入VLESS节点的UUID（必填）: " user_uuid
+            if [ -z "$user_uuid" ]; then
+                echo -e "${RED}错误：UUID不能为空，节点添加失败！${NC}"
+                return 1
             fi
             
-            # 添加默认节点配置
-            uci set passwall.$DEFAULT_NODE_ID=nodes
-            uci set passwall.$DEFAULT_NODE_ID.remarks="$DEFAULT_NODE_REMARKS"
-            uci set passwall.$DEFAULT_NODE_ID.type='sing-box'
-            uci set passwall.$DEFAULT_NODE_ID.protocol='vless'
-            uci set passwall.$DEFAULT_NODE_ID.address='103.195.190.172'
-            uci set passwall.$DEFAULT_NODE_ID.port='58841'
-            uci set passwall.$DEFAULT_NODE_ID.uuid='c0a37248-0b0d-4ecb-beeb-76ff9c8f5eac'
-            uci set passwall.$DEFAULT_NODE_ID.tls='1'
-            uci set passwall.$DEFAULT_NODE_ID.alpn='default'
-            uci set passwall.$DEFAULT_NODE_ID.tls_serverName='tesla.com'
-            uci set passwall.$DEFAULT_NODE_ID.utls='1'
-            uci set passwall.$DEFAULT_NODE_ID.fingerprint='chrome'
-            uci set passwall.$DEFAULT_NODE_ID.reality='1'
-            uci set passwall.$DEFAULT_NODE_ID.reality_publicKey='zQ0aE1tVll0KIsoDUCbTE6kpqg4coqvp1blzYUlPbCQ'
-            uci set passwall.$DEFAULT_NODE_ID.reality_shortId='606beee75848ef0a'
-            uci set passwall.$DEFAULT_NODE_ID.transport='tcp'
-            uci set passwall.$DEFAULT_NODE_ID.mux='0'
+            # 生成随机节点ID
+            node_id=$(head -c 100 /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 8)
             
-            echo -e "${GREEN}已添加默认节点: $DEFAULT_NODE_ID (备注: $DEFAULT_NODE_REMARKS)${NC}"
-            NODE_ID="$DEFAULT_NODE_ID"
+            # 添加节点配置（仅替换UUID为用户输入）
+            uci set passwall.$node_id=nodes
+            uci set passwall.$node_id.remarks="$DEFAULT_NODE_REMARKS"
+            uci set passwall.$node_id.type='sing-box'
+            uci set passwall.$node_id.protocol='vless'
+            uci set passwall.$node_id.address='103.195.190.172'
+            uci set passwall.$node_id.port='58841'
+            uci set passwall.$node_id.uuid="$user_uuid"                # 用户输入的UUID
+            uci set passwall.$node_id.tls='1'
+            uci set passwall.$node_id.alpn='default'
+            uci set passwall.$node_id.tls_serverName='tesla.com'
+            uci set passwall.$node_id.utls='1'
+            uci set passwall.$node_id.fingerprint='chrome'
+            uci set passwall.$node_id.reality='1'
+            uci set passwall.$node_id.reality_publicKey='zQ0aE1tVll0KIsoDUCbTE6kpqg4coqvp1blzYUlPbCQ'
+            uci set passwall.$node_id.reality_shortId='606beee75848ef0a'
+            uci set passwall.$node_id.transport='tcp'
+            uci set passwall.$node_id.mux='0'
+            
+            echo -e "${GREEN}已添加自定义节点: $node_id (备注: $DEFAULT_NODE_REMARKS)${NC}"
+            NODE_ID="$node_id"
         fi
     fi
 
@@ -482,8 +514,11 @@ case $choice in
         # 备份原配置文件
         cp /etc/config/passwall /etc/config/passwall.backup.$(date +%Y%m%d%H%M%S)
         
-        # 执行Passwall节点设置（快速模式）
-        setup_passwall_node "true" "true"
+        # 执行Passwall节点设置（快速模式） - 此处会提示用户输入UUID
+        if ! setup_passwall_node "true" "true"; then
+            echo -e "${RED}Passwall节点配置失败，已跳过。${NC}"
+            # 可根据需要决定是否退出，这里仅提示
+        fi
         
         echo -e "${GREEN}WiFi、DDNSTO和Passwall配置已完成！${NC}"
         
@@ -512,7 +547,10 @@ case $choice in
         fi
         # 备份原配置文件
         cp /etc/config/passwall /etc/config/passwall.backup.$(date +%Y%m%d%H%M%S)
-        setup_passwall_node "true" "false"
+        if ! setup_passwall_node "true" "false"; then
+            echo -e "${RED}Passwall节点配置失败，请重试。${NC}"
+            exit 1
+        fi
         ;;
     5)
         echo -e "${BLUE}只导入节点...${NC}"
@@ -523,7 +561,10 @@ case $choice in
         fi
         # 备份原配置文件
         cp /etc/config/passwall /etc/config/passwall.backup.$(date +%Y%m%d%H%M%S)
-        setup_passwall_node "false" "false"
+        if ! setup_passwall_node "false" "false"; then
+            echo -e "${RED}Passwall节点配置失败，请重试。${NC}"
+            exit 1
+        fi
         ;;
     *)
         echo -e "${RED}无效选择，请重新运行脚本并选择1-5之间的选项${NC}"
