@@ -17,7 +17,7 @@ download_if_not_exists() {
         echo "✅ 文件 $file 已存在，跳过下载。"
     else
         echo "⬇️  正在下载 $file ..."
-        wget -O "$file" "$url"
+        wget -O --no-check-certificate "$file" "$url"
         if [ $? -eq 0 ]; then
             echo "✅ 下载 $file 成功。"
         else
