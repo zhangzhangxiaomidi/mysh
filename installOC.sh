@@ -1,8 +1,8 @@
 #!/bin/sh
 
 # 文件下载地址（使用 ghproxy.com 代理）
-IPK_URL="https://ghproxy.com/https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/luci-app-openclash_0.47.055_all.ipk"
-META_URL="https://ghproxy.com/https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/clash_meta"
+IPK_URL="https://gh-proxy.com/https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/luci-app-openclash_0.47.055_all.ipk"
+META_URL="https://gh-proxy.com/https://github.com/zhangzhangxiaomidi/mysh/raw/refs/heads/main/clash_meta"
 
 IPK_FILE="luci-app-openclash_0.47.055_all.ipk"
 META_FILE="clash_meta"
