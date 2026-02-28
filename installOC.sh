@@ -10,33 +10,43 @@ META_TARGET="/etc/openclash/core/clash_meta"
 
 echo "=== 开始安装 OpenClash ==="
 
-# 1. 下载 ipk 文件（如果不存在）
-if [ -f "$IPK_FILE" ]; then
-    echo "✅ 文件 $IPK_FILE 已存在，跳过下载。"
-else
-    echo "⬇️  正在下载 $IPK_FILE ..."
-    wget --no-check-certificate -O "$IPK_FILE" "$IPK_URL"
-    if [ $? -eq 0 ]; then
-        echo "✅ 下载 $IPK_FILE 成功。"
-    else
-        echo "❌ 下载 $IPK_FILE 失败。"
-        exit 1
-    fi
-fi
+# 定义下载函数（为避免重复代码，此处使用函数，但函数非常基础，不影响整体简洁性）
+download_with_retry() {
+    local file=$1
+    local url=$2
+    local max_attempts=3
+    local attempt=1
 
-# 2. 下载 clash_meta 文件（如果不存在）
-if [ -f "$META_FILE" ]; then
-    echo "✅ 文件 $META_FILE 已存在，跳过下载。"
-else
-    echo "⬇️  正在下载 $META_FILE ..."
-    wget --no-check-certificate -O "$META_FILE" "$META_URL"
-    if [ $? -eq 0 ]; then
-        echo "✅ 下载 $META_FILE 成功。"
-    else
-        echo "❌ 下载 $META_FILE 失败。"
-        exit 1
+    if [ -f "$file" ]; then
+        echo "✅ 文件 $file 已存在，跳过下载。"
+        return 0
     fi
-fi
+
+    while [ $attempt -le $max_attempts ]; do
+        echo "⬇️  正在下载 $file (尝试 $attempt/$max_attempts) ..."
+        wget --no-check-certificate -O "$file" "$url"
+        if [ $? -eq 0 ]; then
+            echo "✅ 下载 $file 成功。"
+            return 0
+        else
+            echo "⚠️ 下载 $file 失败。"
+            if [ $attempt -lt $max_attempts ]; then
+                echo "⏳ 等待 2 秒后重试..."
+                sleep 2
+            fi
+        fi
+        attempt=$((attempt + 1))
+    done
+
+    echo "❌ 下载 $file 失败，已达最大重试次数。"
+    exit 1
+}
+
+# 1. 下载 ipk 文件
+download_with_retry "$IPK_FILE" "$IPK_URL"
+
+# 2. 下载 clash_meta 文件
+download_with_retry "$META_FILE" "$META_URL"
 
 # 3. 创建目标目录（如果不存在）
 if [ ! -d "/etc/openclash/core" ]; then
