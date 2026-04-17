@@ -17,8 +17,8 @@ DEFAULT_SHUNT_REMARK="tk"
 
 # 检测可用无线设备
 # 直接设置设备名称
-RADIO_2G="MT7986_1_1"
-RADIO_5G="MT7986_1_2"
+RADIO_2G="MT7986"
+RADIO_5G="MT7986"
 
 # 询问基本信息
 read -p "请输入要创建的WiFi数量 [1]: " wifi_count
