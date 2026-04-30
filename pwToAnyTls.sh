@@ -45,7 +45,7 @@ echo "[3/4] 正在开始安装程序..."
 
 # 先安装 Sing-box
 echo "正在安装 Sing-box核心..."
-opkg install "$SINGBOX_IPK"
+opkg install --force-space --force-depends "$SINGBOX_IPK"
 if [ $? -ne 0 ]; then
     echo "警告: Sing-box 安装可能存在依赖问题，请检查输出。"
 fi
